@@ -63,7 +63,8 @@ class ManifestProcessor:
                 except IndexError:
                     pass
         return df2
-
+    
+    # Set a default_value for the Slack Channel ID here, in case the script doesn't find an ID 
     def merge_slack_ids(self, df2, default_value: str = "C0514AZSN9Z"):
         # merge slack_id and slack_id_2 columns
         df2["slack_id"] = df2["slack_id"].combine_first(df2["slack_id_2"])
