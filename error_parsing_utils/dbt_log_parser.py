@@ -23,26 +23,25 @@ calling the dbt_log_parser() function, which outputs a dataframe where each row 
 MANIFEST_FILE_PATH = "../../../../dbt/target/manifest.json"
 RUN_RESULTS_FILE_PATH = "../../../../dbt/target/run_results.json"
 
+# Default Slack Channel ID
+DEFAULT_SLACK_ID = "C0514AZSN9Z"
 
 # Class to process data from imported Manifest class
 class ManifestProcessor:
-    def __init__(self, data):
+    def __init__(self, data: dict):
         self.data = data
 
     def process_manifest(self):
         # Create a DataFrame from the data
         df = pd.DataFrame(self.data)
 
-        # Split the 'description' column by newline characters into separate columns
-        description_split = df["description"].str.split("\n", expand=True)
-
         # Extract the 'Data owner' and 'Slack ID' values from the split 'description' column
-        data_owner_split = description_split[0].str.split(": ", expand=True)
-        slack_id_split = description_split[1].str.split(": ", expand=True)
+        data_owner_split = df["description"].str.extract(r"(Data Owner:\s*[A-Z0-9]+)", expand=True)
+        slack_id_split = df["description"].str.extract(r"(Slack Channel ID:\s*[A-Z0-9]+)", expand=True)
 
         # Assign the extracted values to new columns in the DataFrame
-        df["model_owner"] = data_owner_split[1]
-        df["slack_id"] = slack_id_split[1]
+        df["model_owner"] = data_owner_split
+        df["slack_id"] = slack_id_split
         df["depends_on"] = df["depends_on"].apply(
             lambda x: x[0] if len(x) > 0 else None
         )
@@ -65,7 +64,7 @@ class ManifestProcessor:
         return df2
     
     # Set a default_value for the Slack Channel ID here, in case the script doesn't find an ID 
-    def merge_slack_ids(self, df2, default_value: str = "C0514AZSN9Z"):
+    def merge_slack_ids(self, df2, default_value: str = DEFAULT_SLACK_ID):
         # merge slack_id and slack_id_2 columns
         df2["slack_id"] = df2["slack_id"].combine_first(df2["slack_id_2"])
 
@@ -76,6 +75,8 @@ class ManifestProcessor:
         mask = df2["slack_id"].notnull() & (~df2["slack_id"].str.startswith("C"))
         df2.loc[mask, "slack_id"] = default_value
 
+        # This df returns the node model_name, node text, model_owner as specified by the data owner param in the description,
+        # the slack id as defined in the description, the model path in your project, and the dependecy nodes
         df2 = df2[
             ["unique_id", "node", "model_owner", "slack_id", "path", "depends_on"]
         ]
